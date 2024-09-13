@@ -65,13 +65,22 @@ end
     Mat_Nrange(1,[1,2,3])=1; % only one equality  
      clear Vec_cN_for_each_Card Vec_minN_for_each_Card Vec_maxN_for_each_Card
 
+% How to arrange operators substantially affect the computational efficiency 
+if N_CardType==16;     order_bk_operator=[16,15,14,12,13];
+elseif N_CardType==15; order_bk_operator=[14,15,12,13];
+elseif N_CardType==14; order_bk_operator=[14,13,12];
+elseif N_CardType==13; order_bk_operator=[12,13];
+else; order_bk_operator=12;
+end
+order_search=[1,order_bk_operator,[2,9,3,8,4,7,5,6,1,0]+2];
+
 %% Try 1
 % Initialize
     Col=1;
         Boxes_Index(loc_Equality,Col)=false;
         Boxes_Index(Vec_Cards=="0",Col)=false; 
         Boxes_Index(loc_Oper,Col)=false;
-    Col=1:(ceil(N_info/2));
+    Col=1:(ceil(N_info/2)-1);
         Boxes_Index(loc_Equality,Col)=false;
     Col=N_info;
         Boxes_Index([loc_Equality,loc_Oper],Col)=false;
@@ -91,52 +100,44 @@ end
     if flag_ini
         List_final_equ=input('Please insert the equation you want to try.\n');    
         Max_equ=0;
-        Max_try=0;
     else
-        Max_equ=input('How many candidate equations do you want to obtain at maximum? ');
-        Max_try=input('How many combinations do you want me to try given the location of "="? ');
-    %for i=1:length(loc_Equal)
-        candidate_message=sprintf(['I am considering {', ...
-            repmat(' %d',[1,length(loc_Equal)])...
-            '} as candidates for the location of "=" at priority\n',...
-            'Choose the location of "=" you wanna use: '],loc_Equal);
-        loc_equal=input(candidate_message);
-        %loc_equal=loc_Equal(i);
-        % fprintf('location of "=": %d\n',loc_equal)
-        %loc_equal=round(N_info*3/4);
-        [Vec_Answer_xm1,N_Sides,List_equ,List_score,N_equ_gen,ind_search_given_i,Boxes_Index_given_i]=gen_ready(Vec_Answer,Boxes_Index,loc_equal,ind_search,N_info);
-        [List_equ,List_score,~]=genEqu(x,Vec_Answer_xm1,ind_search_given_i,Boxes_Index_given_i,Mat_Nrange,Vec_Cards,N_CardType,N_Sides,Max_equ,Max_try,List_equ,List_score,N_equ_gen,0);    
-        max_val=max(List_score);
-        List_final_equ=List_equ(List_score==max_val,:);
-    %end
+        flag_try=true;
+        while flag_try            
+            Max_try=input('How many equations are you going to attempt? ');
+            N_equ_gen=0;
+            N_equ_try=0;
+            List_equ=strings(0,N_info);
+            List_score=zeros(0,0);
+            [List_equ,List_score,N_equ_try]=genEqu(x,Vec_Answer,ind_search,Boxes_Index,Mat_Nrange,Vec_Cards,N_CardType,N_info,Max_try,List_equ,List_score,N_equ_try,order_search);    
+           if size(List_equ,1)>0
+                max_val=max(List_score);
+                List_final_equ=List_equ(List_score==max_val,:);
+                N_equ_tp=min([5;size(List_final_equ,1)]);
+                for i = 1:N_equ_tp
+                    fprintf('\n %s',squeeze(char(List_final_equ(i,:)))')
+                end
+                fprintf('\n')
+                flag_try=false;
+            else
+                fprintf('\nWe could not find any valid equation given %d. Please try again after increasing the maximum number of trials\n',Max_try)
+            end
+        end
     end
-    List_final_equ(1:min([5;size(List_final_equ,1)]),:)
-    %Max_equ=ceil(Max_equ/sum(Boxes_Index(1,:),2));
     Mat_Nrange(2:end,3)=N_info-1; 
-    Mat_Nrange0=Mat_Nrange;
-    Vec_Answer0=Vec_Answer;
-    Boxes_Index0=Boxes_Index;
-    ind_search0=ind_search;
-    List_final_equ0=List_final_equ;
-    %{
-    Mat_Nrange=Mat_Nrange0;
-    Vec_Answer=Vec_Answer0;
-    Boxes_Index=Boxes_Index0;
-    ind_search=ind_search0;
-    %}
-%List_final_equ=['9','+','8','+','7','+','6','+','1','2','+','3','=','4','5'];
-%List_final_equ=['7','9','8','1','2','+','2','1','0','=','8','0','0','2','2'];
-%List_final_equ=['9','8','-','7','6','-','5','4','+','3','2','+','1','=','1'];
 %% Next Steps
+
+%order_search=[order_search(1,[1,3:end]),order_search(2)]
 step=1;
-while step<6
+while step<7
     step=step+1;
     if size(List_final_equ,1)>1; loc_choose=input('Which equation are you gonna choose? ');
     else; loc_choose=1; end
-    Vec_Answer_xm1=List_final_equ(loc_choose,:);
+    Vec_Answer_tp1=List_final_equ(loc_choose,:);
     flag_input_again=true;
     while flag_input_again
-        result_vec=input('Insert a character vector of the results (r = red, l = lime, g= green): \n   '); % 
+        result_vec=input(sprintf(['\nEnter a character vector of the results below (r = red, l = lime, g= green) \n', ...
+                          'Equation:  %s   \n',...
+                          '        : '],char(List_final_equ(loc_choose,:)))); % 
         result=zeros(1,N_info);
         if length(result_vec) == N_info
             for i=1:N_info
@@ -149,62 +150,37 @@ while step<6
             flag_input_again=false;
         end
     end
-%{
-Mat_Nrange_tp=Mat_Nrange;
-Vec_Answer_tp=Vec_Answer;
-Boxes_Index_tp=Boxes_Index;
-ind_search_tp=ind_search;
-Mat_Nrange=Mat_Nrange_tp;
-Vec_Answer=Vec_Answer_tp;
-Boxes_Index=Boxes_Index_tp;
-ind_search=ind_search_tp;
-%}
-% Update info   
-    [Vec_Answer,ind_search,Boxes_Index,Mat_Nrange] = updateInfo(result,Vec_Answer,ind_search,Boxes_Index,Mat_Nrange,Vec_Answer_xm1,Vec_Cards,N_CardType);
+    [Vec_Answer,ind_search,Boxes_Index,Mat_Nrange] = updateInfo(result,Vec_Answer,ind_search,Boxes_Index,Mat_Nrange,Vec_Answer_tp1,Vec_Cards,N_CardType);
     Boxes_Cards(~Boxes_Index)="";
     %Boxes_Index(13,[2,3])=false;
-    Vec_Answer
-    Boxes_Cards
-    loc_Equal=find(Boxes_Index(1,:));
-
+    fprintf('\n Remaining Cards')
+    for i=1:N_CardType; fprintf('\n %s',squeeze(char(Boxes_Cards(i,:)))')
+    end
+    fprintf('\n');
+        
     flag_insert=(input('Do you want to input the equation by yourself? (Y/N) ')=='Y');
     if flag_insert
         List_final_equ=input('Insert your equation.\n   ');
     else
-        List_equ=strings(0,N_info);
-        List_score=zeros(0,0);
-        flag_try_given_equality=true;   
-        while flag_try_given_equality
-    %   for i=length(loc_Equal):-1:1 
-            if length(loc_Equal)>1 
-                candidate_message=sprintf(['\nI am considering {', ...
-                                            repmat(' %d',[1,length(loc_Equal)])...
-                                            '} as candidates for the location of "=" at priority',...
-                                            '\nChoose the location of "=" you wanna use: '],loc_Equal);
-                loc_equal=input(candidate_message);
-            else
-                loc_equal=loc_Equal;
-            end
-            Max_equ=input('How many candidate equations do you want to obtain at maximum?');
-            Max_try=input('How many combinations do you want me to try given the location of "="?');
-            %fprintf('location of "=": %d\n',loc_Equal(i))
-            %loc_equal=loc_Equal(i);
-            if Vec_Answer_xm1(loc_equal+1)~="0"
-                [Vec_Answer_xm1,N_Sides,List_equ_given_i,List_score_given_i,N_equ_gen,ind_search_given_i,Boxes_Index_given_i]=gen_ready(Vec_Answer,Boxes_Index,loc_equal,ind_search,N_info);
-                Boxes_Cards_given_i=Boxes_Cards;
-                Boxes_Cards_given_i(~Boxes_Index_given_i)="";
-                [List_equ_given_i,List_score_given_i,~]=genEqu(x,Vec_Answer_xm1,ind_search_given_i,Boxes_Index_given_i,Mat_Nrange,Vec_Cards,N_CardType,N_Sides,Max_equ,Max_try,List_equ_given_i,List_score_given_i,N_equ_gen,0);
-                if size(List_equ_given_i,1)>0
-                    max_val=max(List_score_given_i);
-                    loc=List_score_given_i==max_val;
-                    List_equ=[List_equ;List_equ_given_i(loc,:)];
-                    List_equ
-                    List_score=[List_score;List_score_given_i(loc,:)];
+        flag_try=true;
+        while flag_try
+            Max_try=input('How many equations are you going to attempt? ');
+            N_equ_try=0;
+            List_equ=strings(0,N_info);
+            List_score=zeros(0,0);
+            [List_equ,List_score,N_equ_try]=genEqu(x,Vec_Answer,ind_search,Boxes_Index,Mat_Nrange,Vec_Cards,N_CardType,N_info,Max_try,List_equ,List_score,N_equ_try,order_search);  
+            if size(List_equ,1)>0
+                max_val=max(List_score);
+                List_final_equ=List_equ(List_score==max_val,:);
+                N_equ_tp=min([5;size(List_final_equ,1)]);
+                for i = 1:N_equ_tp
+                    fprintf('\n %s',squeeze(char(List_final_equ(i,:)))')
                 end
+                fprintf('\n')
+                flag_try=false;
+            else
+                fprintf('\nWe could not find any equation given %d. Please try again aftv er increasing the maximum number of trials\n',Max_try)
             end
         end
-        max_val=max(List_score);
-        List_final_equ=List_equ(List_score==max_val,:);
-        List_final_equ(1:min([5;size(List_final_equ,1)]),:)
     end
 end
